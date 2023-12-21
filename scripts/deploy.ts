@@ -13,13 +13,15 @@ async function main() {
   console.log("attestation address:", attestationAddr);
 
   {
-    var enclaveId = parseEnclaveId();
+    const rawEnclaveId = fs.readFileSync('contracts/assets/identity.json', 'utf8');
+    const enclaveId = JSON.parse(rawEnclaveId) as EnclaveIdStruct.EnclaveIdStruct;
     await attestation.configureQeIdentityJson(enclaveId);
     console.log("configureQeIdentityJson");
   }
 
   {
-    const tcbInfo = parseTcbInfo();
+    const rawTcbInfo = fs.readFileSync('contracts/assets/tcbInfo.json', 'utf8');
+    const tcbInfo = JSON.parse(rawTcbInfo) as TCBInfoStruct.TCBInfoStruct.tcbInfo;
     await attestation.configureTcbInfoJson(tcbInfo.fmspc, tcbInfo);
     console.log("configureTcbInfoJson");
   }
@@ -28,63 +30,6 @@ async function main() {
     let tx = await attestation.verifyAttestation(quote);
     console.log(tx)
 }
-
-function parseEnclaveId(): EnclaveIdStruct.EnclaveIdStruct {
-  const fileContent = fs.readFileSync('contracts/assets/identity.json', 'utf8');
-  const obj = JSON.parse(fileContent);
-  var enclaveId = obj.enclaveIdentity as EnclaveIdStruct.EnclaveIdStruct;
-  enclaveId.miscselect = "0x" + enclaveId.miscselect;
-  enclaveId.miscselectMask = "0x" + enclaveId.miscselectMask;
-  enclaveId.attributes = "0x" + enclaveId.attributes;
-  enclaveId.attributesMask = "0x" + enclaveId.attributesMask;
-  enclaveId.mrsigner = "0x" + enclaveId.mrsigner;
-  for (var i in enclaveId.tcbLevels) {
-    if (enclaveId.tcbLevels[i].tcbStatus == "UpToDate") {
-      enclaveId.tcbLevels[i].tcbStatus = 0;
-    } else {
-      enclaveId.tcbLevels[i].tcbStatus = 1;
-    }
-  }
-  return enclaveId;
-}
-
-function parseTcbInfo(): TCBInfoStruct.TCBInfoStruct {
-  const fileContent = fs.readFileSync('contracts/assets/tcbInfo.json', 'utf8');
-  const obj = JSON.parse(fileContent);
-  var tcbInfo = obj.tcbInfo as TCBInfoStruct.TCBInfoStruct;
-  const fmspc = obj.tcbInfo.fmspc;;
-  tcbInfo.pceid = tcbInfo.pceId;
-  for (var i in tcbInfo.tcbLevels) {
-    var tcb = tcbInfo.tcbLevels[i];
-
-    tcb.sgxTcbCompSvnArr = [];
-    for (var k in tcb.tcb) {
-      if (k == "pcesvn") {
-        tcb.pcesvn = tcb.tcb[k];
-      } else {
-        tcb.sgxTcbCompSvnArr.push(tcb.tcb[k]);
-      }
-    }
-    tcb.status = "OK";
-    if (tcb.tcbStatus == "UpToDate") {
-      tcb.status = 0; // "OK";
-    } else if (tcb.tcbStatus == "SWHardeningNeeded") {
-      tcb.status = 1; // "TCB_SW_HARDENING_NEEDED";
-    } else if (tcb.tcbStatus == "ConfigurationAndSWHardeningNeeded") {
-      tcb.status = 2; // "TCB_CONFIGURATION_AND_SW_HARDENING_NEEDED";
-    } else if (tcb.tcbStatus == "ConfigurationNeeded") {
-      tcb.status = 3; // "TCB_CONFIGURATION_NEEDED";
-    } else if (tcb.tcbStatus == "OutOfDate") {
-      tcb.status = 4; // "TCB_OUT_OF_DATE";
-    } else if (tcb.tcbStatus == "OutOfDateConfigurationNeeded") {
-      tcb.status = 5; // "TCB_OUT_OF_DATE_CONFIGURATION_NEEDED";
-    } else if (tcb.tcbStatus == "Revoked") {
-      tcb.status = 6; // "TCB_REVOKED";
-    }
-  }
-  return tcbInfo;
-}
-
 
 // We recommend this pattern to be able to use async/await everywhere
 // and properly handle errors.
